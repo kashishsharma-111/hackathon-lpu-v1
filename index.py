@@ -2,8 +2,9 @@
 Vector index of mood documents (ChromaDB + BAAI/bge-m3).
 
 Each song is indexed as one compact "mood document" built from its metadata and mood profile. Raw lyrics are not
-embedded: they are long, often in Devanagari or Gurmukhi script and drown out the mood signal. Songs without
-lyrics have no profile, so their document only holds title, artists, album and genres.
+embedded next to a profile: they are long, often in Devanagari or Gurmukhi script and drown out the mood signal.
+Without a profile (LLM switched off) an excerpt of the lyrics takes its place. Songs without lyrics only have
+title, artists, album and genres.
 """
 import hashlib
 import logging
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 PERSIST_DIRECTORY = os.path.join(os.getenv("DATA_DIR", "."), "chroma_langchain_db")
 MODEL_NAME = "BAAI/bge-m3"
+MAX_DOCUMENT_LYRICS_CHARS = 1500
 
 embedding_function = HuggingFaceBgeEmbeddings(model_name=MODEL_NAME)
 _stores = {}
@@ -65,6 +67,10 @@ def mood_document(song: dict):
             lines.append(f"Energy: {profile['energy']}")
         if profile.get("language"):
             lines.append(f"Language: {profile['language']}")
+    else:
+        lyrics = song.get("lyrics_english") or song.get("lyrics")
+        if lyrics:
+            lines.append(f"Lyrics: {lyrics[:MAX_DOCUMENT_LYRICS_CHARS]}")
     return "\n".join(lines)
 
 

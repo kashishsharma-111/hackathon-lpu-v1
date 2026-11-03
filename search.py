@@ -133,7 +133,9 @@ def find_songs(library: str, query: str, k: int, smart: bool = True):
     parsed = None
     if smart:
         llm_status = llm.status()
-        if not llm_status["available"]:
+        if not llm_status["enabled"]:
+            pass
+        elif not llm_status["available"]:
             notes.append(f"Smart search is unavailable ({llm_status['reason']}). Showing plain search results.")
         else:
             parsed = llm.parse_query(query)

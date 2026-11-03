@@ -36,7 +36,7 @@ mood query
 - **Robustness.** Every stage is recorded in the catalog, so the job resumes after a crash and only re-runs what
   is missing (for example, new profiles after a prompt change: bump `PROFILE_VERSION` in `llm.py`). Songs become
   searchable in batches while the job runs. If Ollama is down or returns unusable output, profiles are retried
-  on the next run and searches fall back to plain vector search, with a note saying so.
+  on the next run and searches fall back to plain search, with a note saying so.
 
 | File | Purpose |
 |------|---------|
@@ -55,30 +55,57 @@ mood query
 | `run.sh` | Starts backend and frontend together without Docker |
 | `sample_hindi_songs_30.csv` | 30 Hindi songs across moods, to try the app with (`sample_hindi_songs.csv` has 50) |
 
+## LLM on or off
+
+The local LLM is optional. One setting in `.env` switches it for the whole pipeline on that machine:
+
+```
+LLM_ENABLED=true    # mood profiles and smart search (needs about 8 GB of RAM for Docker)
+LLM_ENABLED=false   # light mode, for machines that can't run a local LLM
+```
+
+| | LLM on | Light mode |
+|---|---|---|
+| What gets embedded | Mood profile written by the LLM from the lyrics | An excerpt of the lyrics |
+| Search | Mood parsing, vector, keyword and mood-field ranking | Vector and keyword search |
+| Reasons on results | Matched moods, occasions, energy, keywords | Matched keywords only |
+| Docker | Also runs Ollama and downloads the model | No Ollama, about 5 GB less to download |
+| Memory | About 5-6 GB | About 3 GB while processing songs, 1 GB idle |
+| Processing (CPU) | About 15-20 seconds per song | About 8 seconds per song |
+| Search time (CPU) | About 6 seconds | About 0.1 seconds |
+| Precision@5 on the sample (`eval.py`) | 66% | 60% |
+
+Both modes need the embedding model (BAAI/bge-m3, about 2 GB), which runs on the CPU. You can switch at any time:
+turning the LLM on later only adds profiles to songs that lack one (the *Process* button on the Library page), and
+turning it off keeps the profiles already written. In Docker, restart with `start.bat` after changing the setting.
+
 ## Run with Docker (recommended, works on Windows, macOS and Linux)
 
 Everything runs in containers, including the local LLM, so nothing else needs installing.
 
 1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it. On Windows it needs the
-   WSL 2 backend (the default) and at least **8 GB of memory** for Docker: the embedding model and the LLM together
-   use about 5-6 GB. If needed, raise the limit in `%UserProfile%\.wslconfig`:
+   WSL 2 backend (the default) and at least **8 GB of memory** for Docker with the LLM on: the embedding model and
+   the LLM together use about 5-6 GB. Light mode needs less (see [LLM on or off](#llm-on-or-off)). If needed, raise the limit in `%UserProfile%\.wslconfig`:
    ```
    [wsl2]
    memory=10GB
    ```
    and run `wsl --shutdown` once.
 2. Optional: copy `.env.example` to `.env` and add your Genius token and Spotify credentials. Without a `.env` the
-   app still runs, with lyrics and Spotify switched off (`start.bat` creates the file for you).
+   app still runs, with lyrics and Spotify switched off (`start.bat` creates the file for you). Set
+   `LLM_ENABLED=false` here for light mode.
 3. Start it:
-   - **Windows:** double-click `start.bat`, or run `docker compose up -d --build --wait`.
-   - **macOS / Linux:** `docker compose up -d --build --wait`
+   - **Windows:** double-click `start.bat`. It reads `LLM_ENABLED` and starts the right services.
+   - **macOS / Linux, LLM on:** `docker compose --profile llm up -d --build --wait`
+   - **macOS / Linux, light mode:** `docker compose up -d --build --wait`
 
    The first start builds the image and downloads about 10 GB (the app image, the Ollama image, the 2 GB
-   embedding model and the 2 GB LLM), which takes 15-30 minutes depending on your connection. Smart search switches on by itself when the LLM download is done; the sidebar shows its status.
+   embedding model and the 2 GB LLM), which takes 15-30 minutes depending on your connection. Light mode skips
+   the Ollama image and the LLM, so about 5 GB. Smart search switches on by itself when the LLM download is done; the sidebar shows its status.
 4. Open http://localhost:8501.
 
-Stop with `stop.bat` or `docker compose down`. Your songs, mood profiles, Spotify login and downloaded models are
-kept in Docker volumes; `docker compose down -v` deletes them too. The ports are only opened on your own machine.
+Stop with `stop.bat` or `docker compose --profile llm down`. Your songs, mood profiles, Spotify login and downloaded models are
+kept in Docker volumes; adding `-v` to that command deletes them too. The ports are only opened on your own machine.
 Logs: `docker compose logs -f backend`. After changing code or `.env`, run `docker compose up -d --build` again.
 To use your Spotify account in Docker, the redirect URI in the Spotify dashboard must be
 `http://127.0.0.1:8235/callback` (the default).
@@ -101,7 +128,7 @@ Needs Python 3.10+ and about 5 GB of disk for the models. On Windows, use Docker
    - `SPOTIFY_*`: only for the `spotify` source. Create an app at https://developer.spotify.com/dashboard, add
      the redirect URI `http://127.0.0.1:8235/callback` and your account under *User Management*. The owner of the
      app needs Spotify Premium.
-3. For mood profiles and smart search, install [Ollama](https://ollama.com) and pull the model:
+3. Optional, for mood profiles and smart search (skip it with `LLM_ENABLED=false`), install [Ollama](https://ollama.com) and pull the model:
    ```bash
    ollama pull qwen2.5:3b
    ```
@@ -136,7 +163,7 @@ All settings live in `.env` (see `.env.example`):
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `MOODIFY_SOURCE` | `csv` | Default data source for API requests |
-| `LLM_ENABLED` | `true` | Set to `false` to turn off all LLM steps |
+| `LLM_ENABLED` | `true` | Set to `false` for light mode on machines that can't run a local LLM |
 | `LLM_MODEL` | `qwen2.5:3b` | Any Ollama chat model, for example `llama3.2` or `qwen3:8b` |
 | `OLLAMA_URL` | `http://localhost:11434` | Where Ollama runs |
 | `LLM_TIMEOUT` | `180` | Seconds before an LLM call is abandoned |

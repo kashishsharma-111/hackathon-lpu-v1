@@ -14,7 +14,9 @@ if [ ! -f .env ]; then
 fi
 
 OLLAMA_URL=$(grep -E '^OLLAMA_URL=' .env | cut -d= -f2- || true)
-if ! curl -s -m 2 "${OLLAMA_URL:-http://localhost:11434}/api/tags" >/dev/null; then
+if grep -qiE '^LLM_ENABLED=(false|0|no|off)' .env; then
+  echo "LLM is switched off in .env (light mode)."
+elif ! curl -s -m 2 "${OLLAMA_URL:-http://localhost:11434}/api/tags" >/dev/null; then
   echo "Note: Ollama is not running, so smart search is off. Start it with: ollama serve"
 fi
 

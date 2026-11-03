@@ -5,6 +5,7 @@ The LLM is used in two places, both producing the same structured mood fields:
 - profile_song: once per song while processing the library, from the song's whole lyrics.
 - parse_query: once per search, turning a mood request into the fields to match against.
 
+The whole layer can be switched off per machine with LLM_ENABLED=false, for machines that cannot run a local model.
 Moods and occasions come from fixed vocabularies (enforced through a JSON schema), so a query and a song can be
 compared directly without another LLM call. Every function returns None when Ollama is not running, the model is
 not pulled, a call times out or the output is malformed; callers then fall back to plain vector search.
@@ -49,10 +50,11 @@ _query_cache = {}
 
 def status(force: bool = False):
     """
-    Returns {"available": bool, "model": str, "reason": str | None}. Cached for STATUS_TTL seconds.
+    Returns {"enabled": bool, "available": bool, "model": str, "reason": str | None}. Cached for STATUS_TTL seconds.
+    "enabled" is the machine's LLM_ENABLED setting; "available" also needs Ollama and the model to be there.
     """
     if not LLM_ENABLED:
-        return {"available": False, "model": LLM_MODEL, "reason": "LLM is disabled (LLM_ENABLED=false)."}
+        return {"enabled": False, "available": False, "model": LLM_MODEL, "reason": "LLM_ENABLED=false in .env."}
     with _status_lock:
         if not force and _status_cache["value"] and time.time() - _status_cache["at"] < STATUS_TTL:
             return _status_cache["value"]
@@ -61,12 +63,12 @@ def status(force: bool = False):
             response.raise_for_status()
             names = {m.get("name") for m in response.json().get("models", [])}
             if LLM_MODEL in names or f"{LLM_MODEL}:latest" in names:
-                value = {"available": True, "model": LLM_MODEL, "reason": None}
+                value = {"enabled": True, "available": True, "model": LLM_MODEL, "reason": None}
             else:
-                value = {"available": False, "model": LLM_MODEL,
+                value = {"enabled": True, "available": False, "model": LLM_MODEL,
                          "reason": f"Model {LLM_MODEL} is not pulled. Run: ollama pull {LLM_MODEL}"}
         except (requests.RequestException, ValueError):
-            value = {"available": False, "model": LLM_MODEL,
+            value = {"enabled": True, "available": False, "model": LLM_MODEL,
                      "reason": f"Ollama is not reachable at {OLLAMA_URL}. Start it with: ollama serve"}
         _status_cache.update(at=time.time(), value=value)
         return value

@@ -8,12 +8,13 @@ weights or the mood document.
     venv/bin/python eval.py            # both modes
     venv/bin/python eval.py --plain    # plain vector search only (fast)
 """
+import os
 import sys
 import time
 
 import requests
 
-BASE_URL = "http://127.0.0.1:8235"
+BASE_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8235")
 K = 5
 
 # Mood query -> songs from sample_hindi_songs_30.csv that clearly fit

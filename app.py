@@ -155,6 +155,7 @@ st.title("🎵 Moodify")
 st.caption("Find songs from your library that match a mood.")
 
 health, health_error = call_backend("GET", "/health", timeout=10)
+llm_enabled = bool(health and health["llm"]["enabled"])
 llm_available = bool(health and health["llm"]["available"])
 
 source = st.sidebar.radio(
@@ -179,6 +180,8 @@ else:
     llm_info = health["llm"]
     if llm_available:
         st.sidebar.success(f"LLM: {llm_info['model']}")
+    elif not llm_enabled:
+        st.sidebar.info("Light mode: LLM is off (LLM_ENABLED=false). Search uses lyrics, keywords and embeddings.")
     else:
         st.sidebar.warning(f"LLM off: {llm_info['reason']}")
     if not health["genius_configured"]:
@@ -199,11 +202,15 @@ running = st.session_state.running
 
 
 def llm_toggle():
+    if not llm_enabled:
+        return False
     return st.checkbox("Write mood profiles with the LLM (best results, about 20 s per song on CPU)",
                        value=llm_available, disabled=busy or not llm_available)
 
 
 def smart_toggle():
+    if not llm_enabled:
+        return False
     return st.toggle("Smart search (LLM)", value=llm_available, disabled=busy or not llm_available,
                      help="The LLM reads your mood request and songs are ranked on mood, occasion, energy and "
                           "positivity as well as text similarity. Takes a few seconds.")

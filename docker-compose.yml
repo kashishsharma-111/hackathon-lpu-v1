@@ -1,10 +1,13 @@
-# Moodify: backend + frontend + a local LLM (Ollama), all on CPU. Start with: docker compose up --build
-# Settings come from .env (copy .env.example); the stack also runs without one, with the csv source only.
+# Moodify: backend + frontend, all on CPU, plus a local LLM (Ollama) when the "llm" profile is active.
+#   With the LLM:     docker compose --profile llm up -d --build --wait
+#   Light mode:       docker compose up -d --build --wait     (and LLM_ENABLED=false in .env)
+# start.bat picks the right one from LLM_ENABLED in .env. Settings come from .env (copy .env.example).
 name: moodify
 
 services:
   ollama:
     image: ollama/ollama:latest
+    profiles: [llm]
     restart: unless-stopped
     volumes:
       - ollama:/root/.ollama
@@ -18,6 +21,7 @@ services:
   # switches on smart search as soon as the download is done.
   ollama-pull:
     image: ollama/ollama:latest
+    profiles: [llm]
     depends_on:
       ollama:
         condition: service_healthy
@@ -33,6 +37,7 @@ services:
       - path: .env
         required: false
     environment:
+      LLM_ENABLED: ${LLM_ENABLED:-true}
       OLLAMA_URL: http://ollama:11434
       LLM_MODEL: ${LLM_MODEL:-qwen2.5:3b}
       FRONTEND_URL: http://localhost:8501
@@ -41,8 +46,6 @@ services:
       - "127.0.0.1:8235:8235"
     volumes:
       - data:/data
-    depends_on:
-      - ollama
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8235/health', timeout=5)"]
       interval: 15s
