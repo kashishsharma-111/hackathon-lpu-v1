@@ -1,0 +1,14 @@
+.venv/
+.cache
+__pycache__
+*.pyc
+secrets.txt
+venv/
+.env
+uploaded_liked_songs.csv
+moodify.db*
+
+# Local data and tool state
+chroma_langchain_db/
+.serena/
+.vscode/

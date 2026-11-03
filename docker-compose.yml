@@ -1,0 +1,74 @@
+# Moodify: backend + frontend + a local LLM (Ollama), all on CPU. Start with: docker compose up --build
+# Settings come from .env (copy .env.example); the stack also runs without one, with the csv source only.
+name: moodify
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # Downloads the LLM once (about 2 GB for the default model), then exits. The app works without it and
+  # switches on smart search as soon as the download is done.
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: ollama:11434
+    entrypoint: ["ollama", "pull", "${LLM_MODEL:-qwen2.5:3b}"]
+    restart: "no"
+
+  backend:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:3b}
+      FRONTEND_URL: http://localhost:8501
+      SPOTIFY_REDIRECT_URI: http://127.0.0.1:8235/callback
+    ports:
+      - "127.0.0.1:8235:8235"
+    volumes:
+      - data:/data
+    depends_on:
+      - ollama
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8235/health', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+
+  frontend:
+    build: .
+    restart: unless-stopped
+    command: ["streamlit", "run", "app.py", "--server.address", "0.0.0.0", "--server.port", "8501",
+              "--server.headless", "true", "--browser.gatherUsageStats", "false"]
+    environment:
+      BACKEND_URL: http://backend:8235
+      PUBLIC_BACKEND_URL: http://127.0.0.1:8235
+    ports:
+      - "127.0.0.1:8501:8501"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  data:     # song catalog, vector index, Spotify login and the embedding model cache
+  ollama:   # downloaded LLM models

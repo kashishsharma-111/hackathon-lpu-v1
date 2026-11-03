@@ -1,0 +1,7 @@
+# Keep Unix line endings for scripts so they work inside containers when checked out on Windows
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.bat text eol=crlf

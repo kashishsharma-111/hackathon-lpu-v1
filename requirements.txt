@@ -1,0 +1,24 @@
+# Backend API
+fastapi>=0.115
+uvicorn>=0.30
+python-dotenv>=1.0
+requests>=2.31
+
+# Music services
+spotipy>=2.24
+lyricsgenius>=3.6
+
+# Embeddings and vector store (torch installs CPU or CUDA wheels depending on your platform)
+torch
+transformers
+sentence-transformers>=3.0
+langchain-core>=0.3
+langchain-community>=0.3
+langchain-chroma>=0.1.2
+chromadb>=0.5
+
+# Frontend
+streamlit>=1.43
+
+# Dev tools
+pre-commit
