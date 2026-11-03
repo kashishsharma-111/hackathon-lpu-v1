@@ -53,6 +53,7 @@ mood query
 | `Dockerfile`, `docker-compose.yml` | Container setup: backend, frontend and a local LLM (Ollama) |
 | `start.bat`, `stop.bat` | One-click start and stop on Windows (Docker Desktop) |
 | `run.sh` | Starts backend and frontend together without Docker |
+| `resources/` | Project explanation: architecture, evaluation, presentation guide and viva questions |
 | `sample_hindi_songs_30.csv` | 30 Hindi songs across moods, to try the app with (`sample_hindi_songs.csv` has 50) |
 
 ## LLM on or off
